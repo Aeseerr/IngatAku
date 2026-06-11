@@ -9,16 +9,22 @@ export default function Dashboard({ activities = [], loading = false, error = nu
   const navigate = useNavigate()
 
   const activeActivities = activities.filter(item => item.status !== 'Selesai')
-  const highPriority = activities.filter(item => item.priority_level === 'Tinggi')
-  const normalPriority = activities.filter(item => item.priority_level === 'Sedang')
-  const lowPriority = activities.filter(item => item.priority_level === 'Rendah')
   const completed = activities.filter(item => item.status === 'Selesai')
+
+  const highPriority = activities.filter(item => getLivePriority(item) === 'Tinggi')
+  const normalPriority = activities.filter(item => getLivePriority(item) === 'Sedang')
+  const lowPriority = activities.filter(item => getLivePriority(item) === 'Rendah')
+
+  const deadlineSoon = activeActivities.filter(item =>
+    ['overdue', 'today', 'soon'].includes(item.deadline_status),
+  )
 
   const urgentTasks = [...activeActivities]
     .sort((a, b) => {
-      const scoreDiff = Number(b.score ?? 0) - Number(a.score ?? 0)
+      const scoreDiff = getLiveScore(b) - getLiveScore(a)
       if (scoreDiff !== 0) return scoreDiff
-      return Number(a.tenggat_waktu ?? 999) - Number(b.tenggat_waktu ?? 999)
+
+      return getRemainingDaysValue(a) - getRemainingDaysValue(b)
     })
     .slice(0, 5)
 
@@ -29,16 +35,35 @@ export default function Dashboard({ activities = [], loading = false, error = nu
       <div className="space-y-6">
         <section className="relative overflow-hidden rounded-[28px] bg-linear-to-br from-[#111827] via-[#1E1B4B] to-[#312E81] p-6 text-white lg:p-7">
           <div className="pointer-events-none absolute right-0 top-0 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
+
           <div className="relative z-10">
             <p className="text-sm font-medium text-indigo-200">PRIORITY SYSTEM</p>
-            <h1 className="mt-3 text-3xl font-black leading-tight lg:text-4xl">Fokus pada prioritas terpentingmu.</h1>
+
+            <h1 className="mt-3 text-3xl font-black leading-tight lg:text-4xl">
+              Fokus pada prioritas terpentingmu.
+            </h1>
+
             <p className="mt-6 max-w-3xl text-lg leading-relaxed text-indigo-100/90 lg:text-xl">
-              Kamu memiliki <span className="font-bold text-white">{highPriority.length} kegiatan prioritas tinggi</span> dan{' '}
-              <span className="font-bold text-white">{activities.length} total kegiatan</span> yang perlu dipantau hari ini.
+              Kamu memiliki{' '}
+              <span className="font-bold text-white">
+                {highPriority.length} kegiatan prioritas tinggi
+              </span>
+              ,{' '}
+              <span className="font-bold text-white">
+                {deadlineSoon.length} kegiatan mendekati deadline
+              </span>
+              , dan{' '}
+              <span className="font-bold text-white">
+                {activities.length} total kegiatan
+              </span>{' '}
+              yang perlu dipantau hari ini.
             </p>
+
             <div className="mt-8 flex items-center gap-3 text-indigo-200">
               <div className="h-2 w-2 animate-pulse rounded-full bg-red-400" />
-              <p className="text-sm font-medium">Prioritas tinggi membutuhkan perhatian segera.</p>
+              <p className="text-sm font-medium">
+                Deadline dan skor prioritas dihitung otomatis mengikuti tanggal hari ini.
+              </p>
             </div>
           </div>
         </section>
@@ -55,7 +80,9 @@ export default function Dashboard({ activities = [], loading = false, error = nu
             <div className="flex items-center justify-between border-b border-slate-100 p-5">
               <div>
                 <h2 className="text-xl font-black text-slate-900">Fokus Prioritas</h2>
-                <p className="mt-1 text-slate-500">Kegiatan paling mendesak berdasarkan skor spreadsheet.</p>
+                <p className="mt-1 text-slate-500">
+                  Kegiatan paling mendesak berdasarkan skor live dan deadline harian.
+                </p>
               </div>
 
               <button
@@ -74,7 +101,9 @@ export default function Dashboard({ activities = [], loading = false, error = nu
                 ))}
               </div>
             ) : error ? (
-              <div className="m-5 rounded-3xl border border-red-100 bg-red-50 p-5 text-red-600">{error}</div>
+              <div className="m-5 rounded-3xl border border-red-100 bg-red-50 p-5 text-red-600">
+                {error}
+              </div>
             ) : urgentTasks.length ? (
               <div className="divide-y divide-slate-100">
                 {urgentTasks.map((task, index) => (
@@ -86,8 +115,15 @@ export default function Dashboard({ activities = [], loading = false, error = nu
                 <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
                   <ListTodo className="h-8 w-8" />
                 </div>
-                <h3 className="mt-4 text-xl font-black text-slate-900">Belum ada kegiatan aktif</h3>
-                <p className="mt-2 max-w-sm text-slate-500">Tambahkan kegiatan baru agar dashboard bisa menampilkan fokus prioritas.</p>
+
+                <h3 className="mt-4 text-xl font-black text-slate-900">
+                  Belum ada kegiatan aktif
+                </h3>
+
+                <p className="mt-2 max-w-sm text-slate-500">
+                  Tambahkan kegiatan baru agar dashboard bisa menampilkan fokus prioritas.
+                </p>
+
                 <button
                   onClick={() => navigate('/input')}
                   className="mt-5 rounded-2xl bg-indigo-600 px-5 py-3 font-bold text-white transition hover:bg-indigo-700"
@@ -100,8 +136,13 @@ export default function Dashboard({ activities = [], loading = false, error = nu
 
           <section className="rounded-[30px] border border-slate-200 bg-white p-7 shadow-sm">
             <h2 className="text-xl font-black text-slate-900">Statistik Penyelesaian</h2>
+
             <div className="mt-8">
-              <CompletionChart completed={completed.length} pending={activities.length - completed.length} percentage={completionRate} />
+              <CompletionChart
+                completed={completed.length}
+                pending={activities.length - completed.length}
+                percentage={completionRate}
+              />
             </div>
           </section>
         </div>
@@ -111,39 +152,68 @@ export default function Dashboard({ activities = [], loading = false, error = nu
 }
 
 function PriorityItem({ task, index }) {
-  const isHigh = task.priority_level === 'Tinggi'
-  const isDeadline = Number(task.tenggat_waktu ?? 0) > 0 && Number(task.tenggat_waktu ?? 0) <= 2
+  const liveScore = getLiveScore(task)
+  const livePriority = getLivePriority(task)
+  const isHigh = livePriority === 'Tinggi'
+  const isDeadline = ['overdue', 'today', 'soon'].includes(task.deadline_status)
 
   return (
     <div className="flex flex-col gap-4 p-5 transition hover:bg-slate-50 md:flex-row md:items-center md:justify-between">
       <div className="flex gap-4">
-        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl font-black ${isHigh ? 'bg-red-50 text-red-600' : 'bg-indigo-50 text-indigo-600'}`}>
+        <div
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl font-black ${
+            isHigh ? 'bg-red-50 text-red-600' : 'bg-indigo-50 text-indigo-600'
+          }`}
+        >
           #{index + 1}
         </div>
+
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-black text-slate-900">{task.name}</h3>
+
             {isDeadline && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-600">
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${getDeadlineBadgeColor(
+                  task.deadline_status,
+                )}`}
+              >
                 <AlertTriangle className="h-3.5 w-3.5" />
-                Deadline dekat
+                {getDeadlineBadgeText(task.deadline_status)}
               </span>
             )}
           </div>
+
           <div className="mt-3 flex flex-wrap gap-2 text-sm text-slate-500">
-            <Meta icon={<CalendarDays className="h-4 w-4" />}>{formatTenggat(task.tenggat_waktu)}</Meta>
-            <Meta icon={<Clock3 className="h-4 w-4" />}>{task.jenis}</Meta>
-            <Meta icon={<CheckCircle2 className="h-4 w-4" />}>{task.status || 'Belum'}</Meta>
+            <Meta icon={<CalendarDays className="h-4 w-4" />}>
+              {getDeadlineText(task)}
+            </Meta>
+
+            <Meta icon={<Clock3 className="h-4 w-4" />}>
+              {task.jenis}
+            </Meta>
+
+            <Meta icon={<CheckCircle2 className="h-4 w-4" />}>
+              {task.status || 'Belum'}
+            </Meta>
           </div>
         </div>
       </div>
 
       <div className="flex items-center justify-between gap-3 md:justify-end">
         <div className="text-right">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Skor</p>
-          <p className="text-2xl font-black text-slate-900">{Number(task.score ?? 0).toFixed(1)}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Skor Live
+          </p>
+
+          <p className="text-2xl font-black text-slate-900">
+            {liveScore.toFixed(1)}
+          </p>
         </div>
-        <span className={`rounded-full px-4 py-2 text-sm font-bold ${getPriorityColor(task.priority_level)}`}>{task.priority_level}</span>
+
+        <span className={`rounded-full px-4 py-2 text-sm font-bold ${getPriorityColor(livePriority)}`}>
+          {livePriority}
+        </span>
       </div>
     </div>
   )
@@ -158,7 +228,41 @@ function Meta({ children, icon }) {
   )
 }
 
-function formatTenggat(value) {
-  const days = Number(value ?? 0)
-  return days > 0 ? `${days} hari` : 'Tidak ada tenggat'
+function getLiveScore(task) {
+  return Number(task.live_score ?? task.score ?? 0)
+}
+
+function getLivePriority(task) {
+  return task.live_priority_level ?? task.priority_level ?? 'Rendah'
+}
+
+function getRemainingDaysValue(task) {
+  if (task.deadline_date) {
+    return Number(task.remaining_days ?? 999)
+  }
+
+  return Number(task.tenggat_waktu ?? 999)
+}
+
+function getDeadlineText(task) {
+  if (task.deadline_label) {
+    return task.deadline_label
+  }
+
+  const days = Number(task.tenggat_waktu ?? 0)
+  return days > 0 ? `${days} hari` : 'Tidak ada deadline'
+}
+
+function getDeadlineBadgeText(status) {
+  if (status === 'overdue') return 'Terlambat'
+  if (status === 'today') return 'Deadline hari ini'
+  if (status === 'soon') return 'Deadline dekat'
+  return 'Aman'
+}
+
+function getDeadlineBadgeColor(status) {
+  if (status === 'overdue') return 'bg-red-100 text-red-600'
+  if (status === 'today') return 'bg-orange-100 text-orange-600'
+  if (status === 'soon') return 'bg-amber-100 text-amber-600'
+  return 'bg-emerald-100 text-emerald-600'
 }

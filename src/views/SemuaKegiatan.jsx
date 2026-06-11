@@ -114,7 +114,7 @@ export default function SemuaKegiatan({ activities = [], loading = false, update
                 <div>
                   <span className={`rounded-full px-4 py-2 text-sm font-semibold ${getPriorityColor(activity.priority_level)}`}>{activity.priority_level}</span>
                 </div>
-                <div className="text-slate-600">{activity.tenggat_waktu} hari</div>
+                <div className="text-slate-600">{activity.deadline_label}</div>
                 <div className="font-semibold text-slate-800">{Number(activity.score ?? 0).toFixed(1)}</div>
                 <button onClick={() => handleDelete(activity.id)} className="flex h-10 w-10 items-center justify-center rounded-xl text-rose-500 hover:bg-rose-50">
                   <Trash2 className="h-5 w-5" />
@@ -139,7 +139,7 @@ export default function SemuaKegiatan({ activities = [], loading = false, update
                 </div>
 
                 <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-slate-600">
-                  <div className="rounded-2xl bg-slate-50 p-3">Tenggat: {activity.tenggat_waktu} hari</div>
+                  <div className="rounded-2xl bg-slate-50 p-3">Tenggat: {activity.deadline_label}</div>
                   <div className="rounded-2xl bg-slate-50 p-3">Skor: {Number(activity.score ?? 0).toFixed(1)}</div>
                 </div>
 

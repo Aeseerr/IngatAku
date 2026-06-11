@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { addDaysToDate } from '../utils/deadlineUtils'
 import { calculatePriorityScore, getPriorityLevel } from '../utils/priorityCalculator'
 
 const TABLE = 'kegiatan'
@@ -15,22 +16,25 @@ export function buildActivityPayload(form, userId) {
   const ketergantungan = form.ketergantungan ?? form.ketergantungan_tim ?? 'Tidak'
   const konsekuensi = form.konsekuensi ?? form.konsekuensi_telat ?? 'Tidak ada'
   const jenis = form.jenis ?? 'Pekerjaan'
+  const deadlineDate = addDaysToDate(tenggatWaktu)
 
   const score = calculatePriorityScore(tenggatWaktu, dampak, ketergantungan, konsekuensi, beban, jenis)
 
-  return {
-    user_id: userId,
-    name: String(form.name ?? '').trim(),
-    jenis,
-    tenggat_waktu: tenggatWaktu,
-    dampak_nilai: dampak,
-    ketergantungan_tim: ketergantungan,
-    konsekuensi_telat: konsekuensi,
-    beban_sks: beban,
-    score,
-    priority_level: getPriorityLevel(score),
-    status: form.status ?? 'Belum',
-    is_read: false,
+return {
+  user_id: userId,
+  name: String(form.name ?? '').trim(),
+  jenis,
+  tenggat_waktu: tenggatWaktu,
+  deadline_date: deadlineDate,
+  dampak_nilai: dampak,
+  ketergantungan_tim: ketergantungan,
+  konsekuensi_telat: konsekuensi,
+  beban_sks: beban,
+  score,
+  priority_level: getPriorityLevel(score),
+  status: form.status ?? 'Belum',
+  is_read: false,
+  is_notification_deleted: false,
   }
 }
 
@@ -71,7 +75,10 @@ export async function toggleActivityStatus(activity) {
 
   const { data, error } = await supabase
     .from(TABLE)
-    .update({ status: nextStatus, is_read: nextStatus === 'Selesai' ? true : activity.is_read })
+    .update({
+      status: nextStatus,
+      is_read: nextStatus === 'Selesai' ? true : activity.is_read,
+    })
     .eq('id', activity.id)
     .select('*')
     .single()
@@ -81,7 +88,12 @@ export async function toggleActivityStatus(activity) {
 }
 
 export async function markActivityAsRead(id) {
-  const { data, error } = await supabase.from(TABLE).update({ is_read: true }).eq('id', id).select('*').single()
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({ is_read: true })
+    .eq('id', id)
+    .select('*')
+    .single()
 
   if (error) throw error
   return data
@@ -90,7 +102,36 @@ export async function markActivityAsRead(id) {
 export async function markActivitiesAsRead(ids) {
   if (!ids.length) return []
 
-  const { data, error } = await supabase.from(TABLE).update({ is_read: true }).in('id', ids).select('*')
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({ is_read: true })
+    .in('id', ids)
+    .select('*')
+
+  if (error) throw error
+  return data ?? []
+}
+
+export async function deleteNotification(id) {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({ is_notification_deleted: true })
+    .eq('id', id)
+    .select('*')
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function deleteNotifications(ids) {
+  if (!ids.length) return []
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update({ is_notification_deleted: true })
+    .in('id', ids)
+    .select('*')
 
   if (error) throw error
   return data ?? []

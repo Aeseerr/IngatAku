@@ -55,3 +55,9 @@ using (auth.uid() = user_id);
 
 create index if not exists kegiatan_user_id_created_at_idx
 on public.kegiatan (user_id, created_at desc);
+
+alter table public.kegiatan
+add column if not exists is_notification_deleted bool not null default false;
+
+create index if not exists kegiatan_user_notification_idx
+on public.kegiatan (user_id, is_read, is_notification_deleted, score desc);

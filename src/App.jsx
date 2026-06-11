@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { supabase } from './lib/supabase'
@@ -11,6 +11,7 @@ import SemuaKegiatan from './views/SemuaKegiatan'
 import Notifikasi from './views/Notifikasi'
 import Analitik from './views/Analitik'
 import { useActivities } from './hooks/useActivities'
+import { mapActivitiesWithLiveDeadline } from './utils/liveActivityMapper'
 
 function FullPageLoading() {
   return (
@@ -58,6 +59,21 @@ export default function App() {
     addActivityLocal,
   } = useActivities(user)
 
+const [todayTick, setTodayTick] = useState(Date.now())
+
+useEffect(() => {
+  const interval = setInterval(() => {
+    setTodayTick(Date.now())
+  }, 60 * 1000)
+
+  return () => clearInterval(interval)
+}, [])
+
+const liveActivities = useMemo(() => {
+  todayTick
+  return mapActivitiesWithLiveDeadline(activities)
+}, [activities, todayTick])
+
   async function handleLogout() {
     await supabase.auth.signOut()
     setUser(null)
@@ -68,6 +84,7 @@ export default function App() {
   return (
     <>
       <Toaster position="top-right" />
+
       {!user ? (
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -75,18 +92,20 @@ export default function App() {
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       ) : (
-        <AppLayout activities={activities} onLogout={handleLogout}>
+        <AppLayout activities={liveActivities} onLogout={handleLogout}>
           <Routes>
-            <Route path="/" element={<Dashboard activities={activities} loading={loading} error={error} />} />
+            <Route path="/" element={<Dashboard activities={liveActivities} loading={loading} error={error} />} />
+
             <Route
               path="/input"
               element={<InputKegiatan user={user} refetch={refetch} addActivityLocal={addActivityLocal} />}
             />
+
             <Route
               path="/semua"
               element={
                 <SemuaKegiatan
-                  activities={activities}
+                  activities={liveActivities}
                   loading={loading}
                   refetch={refetch}
                   updateActivityLocal={updateActivityLocal}
@@ -94,18 +113,20 @@ export default function App() {
                 />
               }
             />
+
             <Route
               path="/notifikasi"
               element={
                 <Notifikasi
-                  activities={activities}
+                  activities={liveActivities}
                   loading={loading}
                   updateActivityLocal={updateActivityLocal}
                   updateManyActivitiesLocal={updateManyActivitiesLocal}
                 />
               }
             />
-            <Route path="/analitik" element={<Analitik activities={activities} />} />
+
+            <Route path="/analitik" element={<Analitik activities={liveActivities} />} />
             <Route path="/login" element={<Navigate to="/" replace />} />
             <Route path="/register" element={<Navigate to="/" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
